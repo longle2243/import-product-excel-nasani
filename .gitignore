@@ -1,0 +1,13 @@
+.DS_Store
+.venv/
+browser_profile/
+__pycache__/
+*.pyc
+.env
+import_report.csv
+products.xlsx
+last_test.py
+test_admin.py
+test_buttton.py
+test_demo_real_data.py
+test_save.py
