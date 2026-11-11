@@ -1,41 +1,71 @@
-# import-product-excel-nasani
+# NASANI — Menu luồng chính
 
-## Khảo sát và cập nhật SEO
-
-Chương trình khảo sát/cập nhật bản ghi nằm trong `seo_updater.py` và dùng riêng
-`seo_data.py`. Mặc định công cụ chỉ khảo sát; chế độ UPDATE yêu cầu xác nhận
-riêng. Script `import_excel.py` không bị thay đổi. Công cụ dùng cùng Chromium
-persistent profile tại `browser_profile/` để giữ phiên đăng nhập. Nếu cần đăng
-nhập, hãy nhập thông tin trực tiếp trong cửa sổ trình duyệt.
-
-Crawler chỉ đọc `seo_cli.py` là công cụ riêng; xem hướng dẫn tại
-[SEO_README.md](./SEO_README.md). CLI không có chế độ ghi/cập nhật website.
+## Chạy menu
 
 ```bash
-.venv/bin/python seo_updater.py
+.venv/bin/python main.py
 ```
 
-Kết quả khảo sát và log được ghi trong `logs/seo_scan_report.json` và
-`logs/seo_updater.log`. Báo cáo liệt kê module, bản ghi, trường nhận diện được,
-trường SEO chưa phân loại và lỗi truy cập. Script chỉ cập nhật trường đã nhận
-diện chắc chắn; các trường khác được giữ nguyên.
-
-Sau khi xem báo cáo và xác nhận muốn cập nhật, chạy thử tối đa một bản ghi:
+Nếu chưa cài thư viện:
 
 ```bash
-.venv/bin/python seo_updater.py --mode UPDATE --limit 1 \
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m playwright install chromium
+```
+
+Menu gom các thao tác thường dùng:
+
+1. **Nhập sản phẩm từ Excel** — đọc `products.xlsx` và
+   xuất kết quả vào `import_report.csv`.
+2. **Cập nhật SEO toàn website** — chạy SCAN trước, xem báo cáo rồi xác nhận
+   `UPDATE`; nếu tiếp tục, nhập thêm chính xác `UPDATE ALL SEO RECORDS` để ghi
+   dữ liệu thật lên các bản ghi có trường SEO được nhận diện.
+3. **Kiểm tra dự án / website** — chạy unit test không truy cập website hoặc
+   mở trình duyệt để kiểm tra thủ công. Kiểm tra trình duyệt chỉ đọc, không lưu
+   dữ liệu.
+
+## Cấu trúc
+
+- `main.py`: điểm vào menu.
+- `nasani/`: luồng nhập Excel, SEO và các module dùng chung.
+- `tests/`: kiểm thử tự động, không truy cập website.
+- `tools/`: công cụ kiểm tra form website bằng trình duyệt, chỉ đọc.
+- `products.xlsx`: dữ liệu nhập sản phẩm.
+- `browser_profile/`, `logs/`, `reports/`: dữ liệu cục bộ được tạo khi chạy.
+
+Các luồng dùng Chromium profile tại `browser_profile/`. Đóng các cửa sổ Chrome
+hoặc Chromium đang dùng profile này trước khi chạy menu. Nếu được yêu cầu đăng
+nhập, hãy nhập thông tin trực tiếp trong cửa sổ trình duyệt, không đưa mật khẩu
+vào terminal hay source code.
+
+## Cập nhật SEO
+
+SEO dùng dữ liệu trong `nasani/seo_data.py`. Hiện tại cùng một bộ nội dung được áp
+dụng cho mọi bản ghi; cần chuẩn bị nội dung riêng theo từng trang nếu không
+muốn SEO các trang bị trùng. Báo cáo SCAN và log được lưu trong
+`logs/seo_scan_report.json` và `logs/seo_updater.log`. Công cụ chỉ cập nhật các
+trường SEO nhận diện được; các trường khác được giữ nguyên.
+
+Để chỉ khảo sát, không ghi website:
+
+```bash
+.venv/bin/python -m nasani.seo_updater
+```
+
+Để kiểm tra phạm vi trước khi cập nhật, xem báo cáo SCAN rồi chạy thử một bản
+ghi đã xác định rõ:
+
+```bash
+.venv/bin/python -m nasani.seo_updater --mode UPDATE --limit 1 \
   --record-url 'https://2tskinbar.com/admin/seopage/man/trang-chu' \
   --confirm-update
 ```
 
-UPDATE một bản ghi bắt buộc có URL admin chính xác; URL phải được tìm thấy lại
-trong SCAN mới và có trường SEO nhận diện duy nhất. Script yêu cầu nhập
-`UPDATE ONE RECORD` trực tiếp trong terminal trước khi thực hiện. Cập nhật toàn
-bộ cần một xác nhận riêng:
+Muốn cập nhật toàn bộ bằng lệnh trực tiếp:
 
 ```bash
-.venv/bin/python seo_updater.py --mode UPDATE --confirm-update --confirm-all
+.venv/bin/python -m nasani.seo_updater --mode UPDATE --confirm-update --confirm-all
 ```
 
-Không chạy nhiều phiên Chromium cùng lúc trên cùng `browser_profile/`. Báo cáo
-UPDATE và trạng thái bỏ qua các bản ghi đã xử lý được lưu trong `logs/`.
+Chạy kiểm thử tự động bằng `.venv/bin/python -m unittest discover -s tests -v`.
+Xem thêm hướng dẫn crawler chỉ đọc tại [SEO_README.md](./SEO_README.md).

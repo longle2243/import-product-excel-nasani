@@ -1,46 +1,13 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "Run SEO scanner",
-			"type": "shell",
-			"command": "${workspaceFolder}/.venv/bin/python",
-			"args": [
-				"seo_cli.py"
-			],
-			"isBackground": false,
-			"problemMatcher": []
-		},
-		{
-			"label": "Update homepage SEO (one record)",
-			"type": "shell",
-			"command": "${workspaceFolder}/.venv/bin/python",
-			"args": [
-				"seo_updater.py",
-				"--mode",
-				"UPDATE",
-				"--limit",
-				"1",
-				"--record-url",
-				"https://2tskinbar.com/admin/seopage/man/trang-chu",
-				"--confirm-update"
-			],
-			"isBackground": false,
-			"problemMatcher": []
-		},
-		{
-			"label": "Update all recognized SEO records",
-			"type": "shell",
-			"command": "${workspaceFolder}/.venv/bin/python",
-			"args": [
-				"seo_updater.py",
-				"--mode",
-				"UPDATE",
-				"--confirm-update",
-				"--confirm-all"
-			],
-			"isBackground": false,
-			"problemMatcher": []
-		}
-	]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "NASANI: Open workflow menu",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": ["main.py"],
+      "isBackground": false,
+      "problemMatcher": []
+    }
+  ]
 }

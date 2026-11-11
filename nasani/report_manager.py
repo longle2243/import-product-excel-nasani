@@ -3,7 +3,7 @@ import csv
 import os
 from pathlib import Path
 
-from seo_report import save_report as save_json_report
+from .seo_report import save_report as save_json_report
 
 
 CSV_COLUMNS = (

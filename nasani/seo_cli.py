@@ -1,13 +1,16 @@
 import argparse
 import logging
 from pathlib import Path
-from browser_manager import PROFILE_DIR, validate_profile, open_browser, wait_for_login
+from .browser_manager import PROFILE_DIR, validate_profile, open_browser, wait_for_login
+
+
+PROJECT_DIR = Path(__file__).resolve().parent.parent
 
 
 def main():
     parser = argparse.ArgumentParser(description='NASANI SEO — read-only SCAN. UPDATE not enabled until live scan review.')
     parser.add_argument('--profile', type=Path, default=PROFILE_DIR)
-    parser.add_argument('--reports', type=Path, default=Path(__file__).resolve().parent / 'reports')
+    parser.add_argument('--reports', type=Path, default=PROJECT_DIR / 'reports')
     parser.add_argument('--resume', action='store_true')
     parser.add_argument('--max-pages', type=int, default=1000)
     args = parser.parse_args()
@@ -22,8 +25,8 @@ def main():
         return
     profile = validate_profile(args.profile)
     from playwright.sync_api import sync_playwright
-    from seo_scanner import scan
-    log_dir = Path(__file__).resolve().parent / 'logs'
+    from .seo_scanner import scan
+    log_dir = PROJECT_DIR / 'logs'
     log_dir.mkdir(exist_ok=True)
     logging.basicConfig(filename=log_dir / 'scan.log', level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     with sync_playwright() as playwright:

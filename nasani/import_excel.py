@@ -13,7 +13,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 # CAU HINH
 # =========================
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 EXCEL_FILE = BASE_DIR / "products.xlsx"
 PROFILE_DIR = BASE_DIR / "browser_profile"
 REPORT_FILE = BASE_DIR / "import_report.csv"

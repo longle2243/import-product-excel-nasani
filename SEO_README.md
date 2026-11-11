@@ -2,13 +2,13 @@
 
 ## Thành phần
 
-- `seo_cli.py` và `seo_scanner.py`: crawler chỉ đọc, giới hạn trong các liên kết
+- `nasani/seo_cli.py` và `nasani/seo_scanner.py`: crawler chỉ đọc, giới hạn trong các liên kết
   an toàn tìm thấy trên trang admin.
-- `seo_field_detector.py`: nhận diện trường SEO; `seo_detector.py` là adapter
+- `nasani/seo_field_detector.py`: nhận diện trường SEO; `nasani/seo_detector.py` là adapter
   cho scanner.
-- `browser_manager.py`: mở Chromium với profile hiện có và chờ đăng nhập thủ công.
-- `report_manager.py`: lưu checkpoint JSON và xuất CSV.
-- `seo_updater.py` là chương trình riêng có chế độ UPDATE được bảo vệ bằng xác
+- `nasani/browser_manager.py`: mở Chromium với profile hiện có và chờ đăng nhập thủ công.
+- `nasani/report_manager.py`: lưu checkpoint JSON và xuất CSV.
+- `nasani/seo_updater.py` có chế độ UPDATE được bảo vệ bằng xác
   nhận rõ ràng. CLI bên dưới không gọi UPDATE.
 
 ## Chạy tại máy có profile
@@ -16,17 +16,17 @@
 Cài dependency bằng đúng Python của môi trường dự án:
 
 ```bash
-.venv/bin/python -m pip install -r requirements-seo.txt
+.venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m playwright install chromium
-.venv/bin/python seo_cli.py
+.venv/bin/python -m nasani.seo_cli
 ```
 
 Không xóa hoặc tạo lại `browser_profile`. Đóng phiên Chromium/Chrome khác đang
 dùng profile này trước khi chạy. Có thể chỉ định profile ở nơi khác:
 
 ```bash
-.venv/bin/python seo_cli.py --profile /duong/dan/browser_profile
-.venv/bin/python seo_cli.py --profile /duong/dan/browser_profile --resume
+.venv/bin/python -m nasani.seo_cli --profile /duong/dan/browser_profile
+.venv/bin/python -m nasani.seo_cli --profile /duong/dan/browser_profile --resume
 ```
 
 Menu Enter = SCAN; lựa chọn UPDATE trong CLI sẽ dừng mà không ghi lên website.
@@ -67,8 +67,8 @@ hoặc trống sẽ bị từ chối, không tự khởi tạo.
 Chạy kiểm thử đơn vị bằng:
 
 ```bash
-.venv/bin/python -m unittest -v test_seo
-.venv/bin/python -m compileall -q browser_manager.py report_manager.py seo_cli.py seo_detector.py seo_field_detector.py seo_report.py seo_scanner.py
+.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m compileall -q main.py nasani tests tools
 ```
 
 Kiểm thử không truy cập website. SCAN thực tế cần profile đăng nhập và Chromium

@@ -11,13 +11,13 @@ from urllib.parse import parse_qs, urlparse
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
-from seo_data import SEO_DATA
-from seo_field_detector import detect_seo_fields, unique_field_locator
-from seo_report import save_report, update_summary
-from seo_scanner import safe_url
+from .seo_data import SEO_DATA
+from .seo_field_detector import detect_seo_fields, unique_field_locator
+from .seo_report import save_report, update_summary
+from .seo_scanner import safe_url
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 PROFILE_DIR = BASE_DIR / "browser_profile"
 LOG_DIR = BASE_DIR / "logs"
 SCAN_REPORT_PATH = LOG_DIR / "seo_scan_report.json"
@@ -65,7 +65,7 @@ def validate_seo_data():
     }
     if set(SEO_DATA) != required_keys:
         raise ValueError(
-            "seo_data.py phải khai báo đúng 4 khóa: "
+            "nasani/seo_data.py phải khai báo đúng 4 khóa: "
             + ", ".join(sorted(required_keys))
         )
 

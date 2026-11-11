@@ -4,11 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import seo_detector
-from browser_manager import validate_profile
-from report_manager import save_report
-from seo_scanner import safe_url
-from seo_updater import _select_update_records, _validate_record_url
+from nasani import seo_detector
+from nasani.browser_manager import validate_profile
+from nasani.report_manager import save_report
+from nasani.seo_scanner import safe_url
+from nasani.seo_updater import _select_update_records, _validate_record_url
 
 
 class SeoToolsTests(unittest.TestCase):

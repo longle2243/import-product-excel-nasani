@@ -3,7 +3,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 PROFILE_DIR = BASE_DIR / "browser_profile"
 LOGIN_URL = "https://2tskinbar.com/admin/user/login"
 ADMIN_URL = "https://2tskinbar.com/admin"

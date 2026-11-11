@@ -3,8 +3,8 @@ import logging
 import re
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlsplit, urlunsplit, parse_qsl
-from report_manager import save_report
-from seo_detector import detect, normalize
+from .report_manager import save_report
+from .seo_detector import detect, normalize
 
 BLOCKED = re.compile(r'(^|[^a-z])(delete|remove|destroy|logout|save|update|insert|create|add|publish|unpublish|reset|clear|export|import|duplicate|clone|toggle|enable|disable|approve|reject)([^a-z]|$)', re.I)
 

@@ -1,3 +1,5 @@
+"""Default SEO content used by the updater."""
+
 SEO_DATA = {
     "seo_title": "Triệt lông Phú Nhuận | Chăm sóc da Phú Nhuận | 2T Skinbar",
     "seo_keywords": (
