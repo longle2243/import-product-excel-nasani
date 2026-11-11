@@ -11,6 +11,11 @@ from urllib.parse import parse_qs, urlparse
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
+from .config import (
+    is_within_admin_url,
+    load_seo_data,
+    load_site_config,
+)
 from .seo_data import SEO_DATA
 from .seo_field_detector import detect_seo_fields, unique_field_locator
 from .seo_report import save_report, update_summary
@@ -23,12 +28,9 @@ LOG_DIR = BASE_DIR / "logs"
 SCAN_REPORT_PATH = LOG_DIR / "seo_scan_report.json"
 UPDATE_REPORT_PATH = LOG_DIR / "seo_update_report.json"
 UPDATE_STATE_PATH = LOG_DIR / "seo_update_state.json"
-LOGIN_URL = "https://2tskinbar.com/admin/user/login"
-ADMIN_URL = "https://2tskinbar.com/admin"
 MODE = "SCAN"
 PAGE_TIMEOUT_MS = 30000
 LOGIN_WAIT_SECONDS = 1200
-RECORD_LINK_PATTERN = re.compile(r"/admin/.*/edit/", re.IGNORECASE)
 
 LOGGER = logging.getLogger("seo_updater")
 
@@ -57,23 +59,10 @@ def configure_logging():
 
 
 def validate_seo_data():
-    required_keys = {
-        "seo_title",
-        "seo_keywords",
-        "seo_description",
-        "primary_keyword",
-    }
-    if set(SEO_DATA) != required_keys:
-        raise ValueError(
-            "nasani/seo_data.py phải khai báo đúng 4 khóa: "
-            + ", ".join(sorted(required_keys))
-        )
-
-    for key, value in SEO_DATA.items():
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(
-                "Giá trị {} phải là chuỗi không rỗng.".format(key)
-            )
+    configured_data = load_seo_data()
+    if configured_data is not SEO_DATA:
+        SEO_DATA.clear()
+        SEO_DATA.update(configured_data)
     if len(SEO_DATA["seo_keywords"]) > 70:
         LOGGER.warning(
             "SEO Keywords có %s ký tự; giao diện gợi ý tối đa 70. "
@@ -93,10 +82,32 @@ def validate_seo_data():
 
 
 def is_login_page(page):
-    return urlparse(page.url).path.rstrip("/") == "/admin/user/login"
+    site = load_site_config()
+    if site["login_url"]:
+        login = urlparse(site["login_url"])
+        current = urlparse(page.url)
+        if (
+            current.scheme == login.scheme
+            and current.netloc == login.netloc
+            and current.path.rstrip("/") == login.path.rstrip("/")
+        ):
+            return True
+    return (
+        page.locator("input[type='password']").count() > 0
+        and page.locator("#layout-menu").count() == 0
+    )
 
 
 def navigate_page(page, url):
+    admin_url = load_site_config()["admin_url"]
+    if not is_within_admin_url(url, admin_url) or not safe_url(
+        url,
+        url,
+        admin_url,
+    ):
+        raise ValueError(
+            "Chỉ được mở URL thuộc khu vực quản trị website đã cấu hình."
+        )
     response = page.goto(
         url,
         wait_until="domcontentloaded",
@@ -111,9 +122,14 @@ def navigate_page(page, url):
 
 
 def wait_for_login(page):
-    page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=PAGE_TIMEOUT_MS)
+    site = load_site_config()
+    page.goto(
+        site["login_url"] or site["admin_url"],
+        wait_until="domcontentloaded",
+        timeout=PAGE_TIMEOUT_MS,
+    )
     if page.locator("#layout-menu").count() > 0:
-        page.goto(ADMIN_URL, wait_until="domcontentloaded")
+        page.goto(site["admin_url"], wait_until="domcontentloaded")
         return
 
     LOGGER.info(
@@ -121,15 +137,17 @@ def wait_for_login(page):
         "Không nhập mật khẩu vào terminal hoặc source."
     )
     print(
-        "\nTrình duyệt đang mở trang đăng nhập Nasani. "
-        "Hãy đăng nhập trực tiếp trong cửa sổ trình duyệt."
+        "\nTrình duyệt đang mở trang quản trị website. "
+        "Hãy đăng nhập trực tiếp trong cửa sổ trình duyệt. "
+        "Nếu chưa thấy trang đăng nhập, hãy mở trang đăng nhập website "
+        "trong trình duyệt."
     )
     deadline = time.monotonic() + LOGIN_WAIT_SECONDS
     while time.monotonic() < deadline:
         page.wait_for_timeout(1000)
         if not is_login_page(page) and page.locator("#layout-menu").count() > 0:
             LOGGER.info("Đã phát hiện phiên admin sau khi đăng nhập thủ công.")
-            page.goto(ADMIN_URL, wait_until="domcontentloaded")
+            page.goto(site["admin_url"], wait_until="domcontentloaded")
             return
 
     raise LoginRequired(
@@ -152,10 +170,20 @@ def _module_name(anchor):
     return parts[-1].replace("-", " ").title() if parts else "Admin module"
 
 
+def _is_seo_page_module(module):
+    label = module.get("name") or module.get("module") or ""
+    name = re.sub(r"[^a-z0-9]+", " ", label.lower()).strip()
+    return any(term in name for term in ("seo", "page", "trang", "landing"))
+
+
 def discover_modules(page):
-    navigate_page(page, ADMIN_URL)
+    admin_url = load_site_config()["admin_url"]
+    navigate_page(page, admin_url)
     ensure_authenticated(page)
-    anchors = page.locator("a[href]").evaluate_all(
+    anchors = page.locator(
+        "#layout-menu a[href], nav a[href], "
+        "[role='navigation'] a[href], [role='menu'] a[href], aside a[href]"
+    ).evaluate_all(
         """elements => elements.map(a => ({
             url: a.href,
             text: (a.innerText || a.textContent || '').trim()
@@ -164,21 +192,19 @@ def discover_modules(page):
     )
     modules = {}
     for anchor in anchors:
-        parsed = urlparse(anchor["url"])
-        if parsed.netloc != "2tskinbar.com":
-            continue
-        if not parsed.path.startswith("/admin/"):
-            continue
-        if parsed.path in (
-            "/admin/user/logout",
-            "/admin/delete-cache",
-        ):
-            continue
-        if "changepass" in parsed.query:
+        canonical_url = safe_url(
+            anchor["url"],
+            anchor["url"],
+            admin_url,
+        )
+        if not canonical_url:
             continue
 
-        canonical_url = parsed._replace(query="", fragment="").geturl()
-        if canonical_url == ADMIN_URL + "/":
+        parsed = urlparse(canonical_url)
+        if (
+            parsed.path.rstrip("/") == urlparse(admin_url).path.rstrip("/")
+            and not parsed.query
+        ):
             continue
         modules.setdefault(canonical_url, {
             "name": _module_name(anchor),
@@ -198,7 +224,9 @@ def extract_editable_rows(page):
                         .replace(/\\s+/g, ' ')
                 }));
             const editLinks = links.filter(link =>
-                /\\/admin\\/.*\\/edit\\//i.test(link.url) ||
+                /(?:^|\\/)edit(?:\\/|$)/i.test(
+                    new URL(link.url).pathname
+                ) ||
                 /chinh sua|edit/i.test(link.text)
             );
             const nameLink = links.find(link =>
@@ -212,14 +240,18 @@ def extract_editable_rows(page):
     )
 
     unique = {}
+    admin_url = load_site_config()["admin_url"]
+    admin_path = urlparse(admin_url).path.rstrip("/")
     for row in rows:
         for edit_url in row["edit_urls"]:
-            parsed = urlparse(edit_url)
-            if parsed.netloc != "2tskinbar.com":
+            normalized_url = safe_url(edit_url, edit_url, admin_url)
+            if not normalized_url:
                 continue
-            if not RECORD_LINK_PATTERN.search(parsed.path):
+            parsed = urlparse(normalized_url)
+            relative_path = parsed.path[len(admin_path):]
+            if not re.search(r"(?:^|/)edit(?:/|$)", relative_path, re.I):
                 continue
-            unique.setdefault(edit_url, row.get("title") or "")
+            unique.setdefault(normalized_url, row.get("title") or "")
     return unique
 
 
@@ -256,33 +288,19 @@ def pagination_urls(page, current_url):
     return found
 
 
-def read_record_title(page, fallback, content_module):
-    if content_module:
-        title_field = page.locator("#namevi")
-        if title_field.count() == 1 and title_field.is_visible():
-            value = title_field.input_value().strip()
-            if value:
-                return value
+def read_record_title(page, fallback):
+    title_field = page.locator("#namevi")
+    if title_field.count() == 1 and title_field.is_visible():
+        value = title_field.input_value().strip()
+        if value:
+            return value
 
-        headings = page.locator("h1, h2, h3, h4").all_inner_texts()
-        for heading in headings:
-            if heading.strip():
-                return heading.strip()[:160]
+    headings = page.locator("h1, h2, h3, h4").all_inner_texts()
+    for heading in headings:
+        if heading.strip():
+            return heading.strip()[:160]
 
     return fallback[:160] if fallback else "Bản ghi"
-
-
-def _record_is_content_module(url):
-    return any(
-        segment in urlparse(url).path
-        for segment in (
-            "/product/",
-            "/product-list/",
-            "/news/",
-            "/static/",
-            "/seopage/",
-        )
-    )
 
 
 def _record_id(url, ordinal):
@@ -297,7 +315,7 @@ def _record_id(url, ordinal):
 
 
 def _record_report(module, edit_url, title, page, scan_status):
-    is_seopage = "/seopage/" in urlparse(page.url).path
+    is_seopage = _is_seo_page_module(module)
     fields, unrecognized = detect_seo_fields(page, is_seopage=is_seopage)
     seo_fields = {
         key: values
@@ -359,7 +377,7 @@ def scan_module(page, module):
                 pages_to_scan.append(page_url)
 
         if not rows:
-            is_seopage = "/seopage/" in urlparse(current_url).path
+            is_seopage = _is_seo_page_module(module)
             fields, unrecognized = detect_seo_fields(
                 page,
                 is_seopage=is_seopage,
@@ -374,16 +392,13 @@ def scan_module(page, module):
                 ))
                 module_report["editable"] = True
 
-    content_module = _record_is_content_module(module["url"])
     for ordinal, (edit_url, fallback_title) in enumerate(
         edit_rows.items(),
         start=1,
     ):
         try:
             navigate_page(page, edit_url)
-            title = read_record_title(page, fallback_title, content_module)
-            if not content_module:
-                title = "Bản ghi {}".format(_record_id(edit_url, ordinal))
+            title = read_record_title(page, fallback_title)
             record = _record_report(
                 module,
                 edit_url,
@@ -401,7 +416,7 @@ def scan_module(page, module):
                 "module_url": module["url"],
                 "name": (
                     fallback_title[:160]
-                    if content_module and fallback_title
+                    if fallback_title
                     else "Bản ghi {}".format(_record_id(edit_url, ordinal))
                 ),
                 "edit_url": edit_url,
@@ -436,9 +451,10 @@ def scan_module(page, module):
 
 def scan_website(page):
     modules = discover_modules(page)
+    website_url = load_site_config()["website_url"]
     report = {
         "mode": "SCAN",
-        "website": "https://2tskinbar.com",
+        "website": website_url,
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "modules": [],
         "records": [],
@@ -563,7 +579,7 @@ def _read_locator_value(locator):
 def update_record(page, record):
     edit_url = record["edit_url"]
     navigate_page(page, edit_url)
-    is_seopage = "/seopage/" in urlparse(page.url).path
+    is_seopage = _is_seo_page_module(record)
     detected, unrecognized = detect_seo_fields(page, is_seopage=is_seopage)
     record["unrecognized_fields"] = unrecognized
 
@@ -720,11 +736,12 @@ def update_records(page, report, limit=None):
 
 
 def _validate_record_url(record_url):
-    normalized = safe_url(record_url, record_url)
+    admin_url = load_site_config()["admin_url"]
+    normalized = safe_url(record_url, record_url, admin_url)
     if normalized is None:
         raise ValueError(
-            "--record-url phải là URL HTTPS an toàn trong /admin "
-            "của 2tskinbar.com."
+            "--record-url phải là URL HTTPS an toàn trong khu vực quản trị "
+            "của website đã cấu hình."
         )
     return normalized
 
@@ -820,6 +837,7 @@ def confirm_update(args):
 def main():
     args = parse_args()
     configure_logging()
+    load_site_config()
     validate_seo_data()
 
     if args.mode == "UPDATE":

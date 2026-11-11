@@ -2,11 +2,11 @@
 from pathlib import Path
 from urllib.parse import urlparse
 
+from .config import load_site_config
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROFILE_DIR = BASE_DIR / "browser_profile"
-LOGIN_URL = "https://2tskinbar.com/admin/user/login"
-ADMIN_URL = "https://2tskinbar.com/admin"
 
 
 def validate_profile(profile):
@@ -40,21 +40,40 @@ def open_browser(playwright, profile):
 
 
 def wait_for_login(page):
-    page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=30000)
+    site = load_site_config()
+    page.goto(
+        site["login_url"] or site["admin_url"],
+        wait_until="domcontentloaded",
+        timeout=30000,
+    )
     if page.locator("#layout-menu").count():
-        page.goto(ADMIN_URL, wait_until="domcontentloaded", timeout=30000)
+        page.goto(
+            site["admin_url"],
+            wait_until="domcontentloaded",
+            timeout=30000,
+        )
         return
 
     print(
         "\nHãy đăng nhập trực tiếp trong cửa sổ Chromium. "
+        "Nếu chưa thấy trang đăng nhập, hãy mở trang đăng nhập của website "
+        "trong trình duyệt. "
         "Không nhập mật khẩu vào terminal hoặc source."
     )
     input("Nhấn Enter sau khi đăng nhập xong: ")
     if (
-        urlparse(page.url).path.rstrip("/") == "/admin/user/login"
+        (
+            site["login_url"]
+            and urlparse(page.url).path.rstrip("/")
+            == urlparse(site["login_url"]).path.rstrip("/")
+        )
         or not page.locator("#layout-menu").count()
     ):
         raise RuntimeError(
             "Chưa xác nhận được phiên admin sau khi đăng nhập."
         )
-    page.goto(ADMIN_URL, wait_until="domcontentloaded", timeout=30000)
+    page.goto(
+        site["admin_url"],
+        wait_until="domcontentloaded",
+        timeout=30000,
+    )

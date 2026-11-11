@@ -87,8 +87,8 @@ def main():
                 "Sau khi xem báo cáo, bạn có thể quyết định có chạy UPDATE."
             )
             print(
-                "Lưu ý: dữ liệu trong nasani/seo_data.py hiện được dùng chung "
-                "cho mọi bản ghi; chưa có nội dung riêng theo từng trang."
+                "Lưu ý: website và nội dung SEO được cấu hình tập trung "
+                "trong user_config.py."
             )
             update_all_seo()
         elif choice == "3":

@@ -102,11 +102,11 @@ def _match_field(field, is_seopage):
 
     if is_seopage:
         if re.search(r"\b(title|titlevi)\b", hint):
-            return "seo_title", "seopage-module-label"
+            return "seo_title", "generic-page-field-label"
         if re.search(r"\b(keywords?|keywordsvi)\b", hint):
-            return "seo_keywords", "seopage-module-label"
+            return "seo_keywords", "generic-page-field-label"
         if re.search(r"\b(description|descriptionvi)\b", hint):
-            return "seo_description", "seopage-module-label"
+            return "seo_description", "generic-page-field-label"
 
     is_candidate = any(
         term in hint

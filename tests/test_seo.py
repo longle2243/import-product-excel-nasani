@@ -1,19 +1,248 @@
 import csv
+import contextlib
+import importlib
+import io
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
-from nasani import seo_detector
+import user_config
+from nasani import seo_data, seo_detector
 from nasani.browser_manager import validate_profile
+from nasani.config import load_seo_data, load_site_config
+from nasani.main import main as menu_main
 from nasani.report_manager import save_report
 from nasani.seo_report import save_report as save_json_report
 from nasani.seo_scanner import safe_url
-from nasani.seo_updater import _select_update_records, _validate_record_url
+from nasani.seo_updater import (
+    _select_update_records,
+    _validate_record_url,
+    discover_modules,
+    extract_editable_rows,
+    scan_module,
+    scan_website,
+)
 from nasani.seo_report import update_summary
 
 
 class SeoToolsTests(unittest.TestCase):
+    def test_user_config_provides_website_and_legacy_seo_data(self):
+        site = load_site_config()
+        configured_data = load_seo_data()
+
+        self.assertEqual(site["website_url"], user_config.WEBSITE_URL)
+        self.assertTrue(site["admin_url"].startswith(site["website_url"]))
+        self.assertEqual(set(configured_data), {
+            "seo_title",
+            "seo_keywords",
+            "seo_description",
+            "primary_keyword",
+        })
+        self.assertIs(seo_data.SEO_DATA, user_config.SEO_DATA)
+
+    def test_user_config_rejects_invalid_urls_and_seo_values(self):
+        with patch.object(user_config, "WEBSITE_URL", "http://insecure.example"):
+            with self.assertRaisesRegex(ValueError, "WEBSITE_URL"):
+                load_site_config()
+
+        with patch.object(user_config, "SEO_DATA", {"seo_title": ""}):
+            with self.assertRaisesRegex(ValueError, "SEO_DATA"):
+                load_seo_data()
+
+    def test_user_config_uses_explicit_admin_and_login_urls(self):
+        with (
+            patch.object(user_config, "WEBSITE_URL", "https://nasani.example"),
+            patch.object(
+                user_config,
+                "ADMIN_URL",
+                "https://nasani.example/control-panel",
+            ),
+            patch.object(
+                user_config,
+                "LOGIN_URL",
+                "https://nasani.example/sign-in",
+            ),
+        ):
+            site = load_site_config()
+        self.assertEqual(site["admin_url"], "https://nasani.example/control-panel")
+        self.assertEqual(site["login_url"], "https://nasani.example/sign-in")
+
+    def test_urls_use_the_configured_website_not_a_fixed_domain(self):
+        with patch.object(
+            user_config,
+            "WEBSITE_URL",
+            "https://shop.example.net/deployment",
+        ):
+            site = load_site_config()
+            record_url = (
+                site["admin_url"] + "/unfamiliar-module/edit/42"
+            )
+            self.assertEqual(
+                safe_url(site["admin_url"], record_url),
+                record_url,
+            )
+            self.assertEqual(_validate_record_url(record_url), record_url)
+            self.assertIsNone(
+                safe_url(
+                    site["admin_url"],
+                    "https://2tskinbar.com/admin/unfamiliar-module/edit/42",
+                )
+            )
+
+    def test_discovery_only_accepts_menu_urls_on_configured_admin(self):
+        with patch.object(
+            user_config,
+            "WEBSITE_URL",
+            "https://nasani.example/deployment",
+        ):
+            site = load_site_config()
+
+            class Locator:
+                def __init__(self, values=None):
+                    self.values = values or []
+
+                def count(self):
+                    return 0
+
+                def evaluate_all(self, _script):
+                    return self.values
+
+            class FakePage:
+                url = site["admin_url"]
+
+                def locator(self, selector):
+                    if "nav a[href]" in selector:
+                        return Locator([
+                            {
+                                "url": site["admin_url"] + "/unfamiliar/list",
+                                "text": "Danh mục",
+                            },
+                            {
+                                "url": "https://outside.example/deployment/admin/module",
+                                "text": "Ngoài website",
+                            },
+                            {
+                                "url": "https://nasani.example/other/admin/module",
+                                "text": "Ngoài khu vực quản trị",
+                            },
+                        ])
+                    return Locator()
+
+                def goto(self, url, **_kwargs):
+                    self.url = url
+                    return None
+
+            modules = discover_modules(FakePage())
+            self.assertEqual(
+                modules,
+                [{
+                    "name": "Danh mục",
+                    "url": site["admin_url"] + "/unfamiliar/list",
+                }],
+            )
+
+    def test_editable_rows_require_configured_admin_urls(self):
+        with patch.object(
+            user_config,
+            "WEBSITE_URL",
+            "https://nasani.example/deployment",
+        ):
+            site = load_site_config()
+
+            class Locator:
+                def evaluate_all(self, _script):
+                    return [{
+                        "title": "Bản ghi",
+                        "edit_urls": [
+                            site["admin_url"] + "/unfamiliar/edit/42",
+                            "https://outside.example/deployment/admin/module/edit/8",
+                            "https://nasani.example/other/admin/module/edit/9",
+                        ],
+                    }]
+
+            class FakePage:
+                def locator(self, _selector):
+                    return Locator()
+
+            self.assertEqual(
+                extract_editable_rows(FakePage()),
+                {site["admin_url"] + "/unfamiliar/edit/42": "Bản ghi"},
+            )
+
+    def test_scan_is_read_only_and_reports_configured_website(self):
+        with patch.object(
+            user_config,
+            "WEBSITE_URL",
+            "https://nasani.example/deployment",
+        ):
+            site = load_site_config()
+
+            class FakePage:
+                url = site["admin_url"] + "/unfamiliar/list"
+
+                def locator(self, _selector):
+                    class ReadOnlyLocator:
+                        def fill(self, *_args, **_kwargs):
+                            raise AssertionError("SCAN must not fill fields")
+
+                        def click(self, *_args, **_kwargs):
+                            raise AssertionError("SCAN must not click controls")
+
+                    return ReadOnlyLocator()
+
+            with (
+                patch(
+                    "nasani.seo_updater.navigate_page",
+                    side_effect=lambda page, url: setattr(page, "url", url),
+                ),
+                patch("nasani.seo_updater.count_table_rows", return_value=0),
+                patch("nasani.seo_updater.extract_editable_rows", return_value={}),
+                patch("nasani.seo_updater.pagination_urls", return_value=[]),
+                patch(
+                    "nasani.seo_updater.detect_seo_fields",
+                    return_value=({}, []),
+                ),
+            ):
+                module_report, records = scan_module(
+                    FakePage(),
+                    {
+                        "name": "Danh mục",
+                        "url": site["admin_url"] + "/unfamiliar/list",
+                    },
+                )
+            self.assertEqual(module_report["records_opened"], 0)
+            self.assertEqual(records, [])
+
+            with (
+                patch(
+                    "nasani.seo_updater.discover_modules",
+                    return_value=[{
+                        "name": "Danh mục",
+                        "url": site["admin_url"] + "/unfamiliar/list",
+                    }],
+                ),
+                patch(
+                    "nasani.seo_updater.scan_module",
+                    return_value=(module_report, records),
+                ),
+                patch("nasani.seo_updater.save_report"),
+            ):
+                report = scan_website(FakePage())
+            self.assertEqual(report["mode"], "SCAN")
+            self.assertEqual(report["website"], site["website_url"])
+
+    def test_excel_menu_still_dispatches_to_existing_import_module(self):
+        importlib.import_module("nasani.import_excel")
+        with (
+            patch("nasani.main.run_python", return_value=True) as run_python,
+            patch("builtins.input", side_effect=["1", "0"]),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            menu_main()
+        run_python.assert_called_once_with("-m", "nasani.import_excel")
+
     def test_scanner_accepts_only_safe_admin_urls(self):
         base = "https://2tskinbar.com/admin"
         self.assertEqual(

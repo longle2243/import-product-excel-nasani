@@ -1,20 +1,16 @@
 from playwright.sync_api import sync_playwright
 
 from nasani.browser_manager import PROFILE_DIR, open_browser
-
-
-ADMIN_URL = (
-    "https://demo44.nasanivietnam.net/2026/thang10/"
-    "beauutypharma_1783126w/admin"
-)
+from nasani.config import load_site_config
 
 
 def main():
+    admin_url = load_site_config()["admin_url"]
     with sync_playwright() as playwright:
         context = open_browser(playwright, PROFILE_DIR)
         try:
             page = context.pages[0] if context.pages else context.new_page()
-            page.goto(ADMIN_URL, wait_until="domcontentloaded")
+            page.goto(admin_url, wait_until="domcontentloaded")
             input(
                 "\nĐăng nhập nếu cần, tự mở trang cần kiểm tra rồi nhấn Enter. "
                 "Công cụ chỉ đọc, không lưu dữ liệu..."

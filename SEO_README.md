@@ -10,6 +10,7 @@
 - `nasani/report_manager.py`: lưu checkpoint JSON và xuất CSV.
 - `nasani/seo_updater.py` có chế độ UPDATE được bảo vệ bằng xác
   nhận rõ ràng. CLI bên dưới không gọi UPDATE.
+- Website và dữ liệu SEO được đọc từ `user_config.py` ở thư mục gốc.
 
 ## Chạy tại máy có profile
 
@@ -31,6 +32,8 @@ dùng profile này trước khi chạy. Có thể chỉ định profile ở nơi
 
 Menu Enter = SCAN; lựa chọn UPDATE trong CLI sẽ dừng mà không ghi lên website.
 Đăng nhập trực tiếp trong cửa sổ trình duyệt rồi nhấn Enter tại terminal.
+Nếu `LOGIN_URL` để trống, chương trình không tự đoán URL đăng nhập; hãy mở trang
+đăng nhập trong trình duyệt nếu website không tự chuyển hướng.
 Mật khẩu không được nhập vào terminal hoặc lưu trong source code. Profile thiếu
 hoặc trống sẽ bị từ chối, không tự khởi tạo.
 
@@ -44,6 +47,8 @@ hoặc trống sẽ bị từ chối, không tự khởi tạo.
 - `logs/scan.log`: hoạt động và lỗi, không ghi mật khẩu.
 - Checkpoint JSON ghi nguyên tử sau từng trang. `--resume` bỏ qua trang đã quét;
   lỗi đã ghi trong pages cần xem riêng, không tự retry vô hạn.
+- Chỉ tiếp tục checkpoint thuộc cùng `WEBSITE_URL`; nếu đổi website, hãy chạy
+  SCAN mới không kèm `--resume`.
 - Retry tải tối đa hai lần mỗi trang. Mặc định giới hạn 1000 trang một lượt.
 - Chỉ theo href cùng origin trong `/admin`; gồm pagination có href và menu con
   đã hiện trong DOM. Không suy đoán URL module hoặc selector cụ thể CMS.

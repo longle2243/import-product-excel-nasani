@@ -1,85 +1,54 @@
 # NASANI — Menu luồng chính
 
-## Chạy nhanh trên macOS
+## Cấu hình SEO lần đầu
 
-Trong Finder, nhấp đúp `run_nasani.command`. Lần đầu chạy, chương trình tự tạo
-môi trường Python và cài thư viện/Chromium nếu còn thiếu; các lần sau mở menu
-trực tiếp. Nếu macOS chặn lần mở đầu, nhấp chuột phải vào file và chọn **Mở**.
+1. Mở file `user_config.py` ở thư mục gốc.
+2. Nhập website vào `WEBSITE_URL` (chỉ cần URL website, không thêm `/admin`).
+3. Nhập nội dung vào 4 trường trong `SEO_DATA`.
+4. Lưu file. Nếu website có URL đăng nhập riêng, khai báo `LOGIN_URL`; để trống
+   nếu chưa biết, chương trình sẽ mở khu vực quản trị và không tự đoán URL đăng nhập.
+5. Chạy `run_nasani.command`. Lần đầu chạy, chương trình tự cài dependency và
+   Chromium nếu còn thiếu.
+6. Chọn chức năng **Cập nhật nội dung SEO**.
+7. Đăng nhập trực tiếp trong cửa sổ trình duyệt khi được yêu cầu.
+8. Xem báo cáo SCAN trước. Chỉ xác nhận UPDATE nếu nội dung và phạm vi đúng.
 
-Hoặc chạy một lệnh trong Terminal:
+Nếu trang quản trị không nằm tại `<WEBSITE_URL>/admin`, có thể khai báo `ADMIN_URL`
+trong cùng file cấu hình. Không nhập mật khẩu vào file cấu hình hoặc Terminal.
+
+Nếu macOS chặn lần mở đầu, nhấp chuột phải vào `run_nasani.command` và chọn **Mở**.
+
+## Nhập sản phẩm từ Excel
+
+Đây là chức năng riêng, không dùng `SEO_DATA` và không thay đổi mapping/luồng
+nhập hiện có:
+
+1. Chuẩn bị `products.xlsx` theo mapping Excel hiện có.
+2. Chạy `run_nasani.command` và chọn **Nhập sản phẩm từ Excel**.
+3. Đăng nhập hoặc mở form thêm sản phẩm trong trình duyệt theo lời nhắc.
+4. Xem kết quả trong `import_report.csv`.
+
+## Chạy và kiểm thử
+
+Trong menu, chọn **Kiểm tra dự án / website** để chạy unit tests hoặc kiểm tra
+form website chỉ đọc. Trước khi chạy, đóng Chrome/Chromium khác đang dùng
+`browser_profile/`.
+
+Có thể chạy kiểm thử tự động bằng lệnh:
 
 ```bash
-cd /Users/lql/auto-import-products && ./run_nasani.command
+.venv/bin/python -m unittest discover -s tests -v
 ```
-
-Trong menu, chọn **1** để nhập Excel hoặc **2** để chạy luồng SEO. Trước khi
-chạy, đóng Chrome/Chromium khác đang dùng `browser_profile/`. Nếu website yêu
-cầu đăng nhập, nhập thông tin trực tiếp trong cửa sổ trình duyệt và làm theo lời
-nhắc trong Terminal. Luồng nhập Excel sẽ yêu cầu xác nhận sau khi bạn mở form
-thêm sản phẩm.
-
-## Cài đặt thủ công (nếu cần)
-
-```bash
-cd /Users/lql/auto-import-products
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python -m playwright install chromium
-```
-
-Menu gom các thao tác thường dùng:
-
-1. **Nhập sản phẩm từ Excel** — đọc `products.xlsx` và
-   xuất kết quả vào `import_report.csv`.
-2. **Cập nhật SEO toàn website** — chạy SCAN trước, xem báo cáo rồi xác nhận
-   `UPDATE`; nếu tiếp tục, nhập thêm chính xác `UPDATE ALL SEO RECORDS` để ghi
-   dữ liệu thật lên các bản ghi có trường SEO được nhận diện.
-3. **Kiểm tra dự án / website** — chạy unit test không truy cập website hoặc
-   mở trình duyệt để kiểm tra thủ công. Kiểm tra trình duyệt chỉ đọc, không lưu
-   dữ liệu.
-
-## Cấu trúc
-
-- `main.py`: điểm vào menu.
-- `nasani/`: luồng nhập Excel, SEO và các module dùng chung.
-- `tests/`: kiểm thử tự động, không truy cập website.
-- `tools/`: công cụ kiểm tra form website bằng trình duyệt, chỉ đọc.
-- `products.xlsx`: dữ liệu nhập sản phẩm.
-- `browser_profile/`, `logs/`, `reports/`: dữ liệu cục bộ được tạo khi chạy.
-
-Các luồng dùng Chromium profile tại `browser_profile/`. Đóng các cửa sổ Chrome
-hoặc Chromium đang dùng profile này trước khi chạy menu. Nếu được yêu cầu đăng
-nhập, hãy nhập thông tin trực tiếp trong cửa sổ trình duyệt, không đưa mật khẩu
-vào terminal hay source code.
 
 ## Cập nhật SEO
 
-SEO dùng dữ liệu trong `nasani/seo_data.py`. Hiện tại cùng một bộ nội dung được áp
-dụng cho mọi bản ghi; cần chuẩn bị nội dung riêng theo từng trang nếu không
-muốn SEO các trang bị trùng. Báo cáo SCAN và log được lưu trong
-`logs/seo_scan_report.json` và `logs/seo_updater.log`. Công cụ chỉ cập nhật các
-trường SEO nhận diện được; các trường khác được giữ nguyên.
-
-Để chỉ khảo sát, không ghi website:
+SEO dùng một bộ nội dung trong `user_config.py` cho các bản ghi tìm được. SCAN
+chỉ đọc và lưu báo cáo tại `logs/seo_scan_report.json`; không ghi dữ liệu website.
+UPDATE cần xác nhận rõ ràng sau khi đã xem báo cáo SCAN. Các trường không được
+nhận diện chắc chắn sẽ không bị thay đổi.
 
 ```bash
 .venv/bin/python -m nasani.seo_updater
 ```
 
-Để kiểm tra phạm vi trước khi cập nhật, xem báo cáo SCAN rồi chạy thử một bản
-ghi đã xác định rõ:
-
-```bash
-.venv/bin/python -m nasani.seo_updater --mode UPDATE --limit 1 \
-  --record-url 'https://2tskinbar.com/admin/seopage/man/trang-chu' \
-  --confirm-update
-```
-
-Muốn cập nhật toàn bộ bằng lệnh trực tiếp:
-
-```bash
-.venv/bin/python -m nasani.seo_updater --mode UPDATE --confirm-update --confirm-all
-```
-
-Chạy kiểm thử tự động bằng `.venv/bin/python -m unittest discover -s tests -v`.
-Xem thêm hướng dẫn crawler chỉ đọc tại [SEO_README.md](./SEO_README.md).
+Xem thêm chi tiết về crawler SCAN chỉ đọc tại [SEO_README.md](./SEO_README.md).
