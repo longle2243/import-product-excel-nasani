@@ -11,3 +11,5 @@ test_admin.py
 test_buttton.py
 test_demo_real_data.py
 test_save.py
+/logs/
+/reports/
