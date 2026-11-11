@@ -1,14 +1,28 @@
 # NASANI — Menu luồng chính
 
-## Chạy menu
+## Chạy nhanh trên macOS
+
+Trong Finder, nhấp đúp `run_nasani.command`. Lần đầu chạy, chương trình tự tạo
+môi trường Python và cài thư viện/Chromium nếu còn thiếu; các lần sau mở menu
+trực tiếp. Nếu macOS chặn lần mở đầu, nhấp chuột phải vào file và chọn **Mở**.
+
+Hoặc chạy một lệnh trong Terminal:
 
 ```bash
-.venv/bin/python main.py
+cd /Users/lql/auto-import-products && ./run_nasani.command
 ```
 
-Nếu chưa cài thư viện:
+Trong menu, chọn **1** để nhập Excel hoặc **2** để chạy luồng SEO. Trước khi
+chạy, đóng Chrome/Chromium khác đang dùng `browser_profile/`. Nếu website yêu
+cầu đăng nhập, nhập thông tin trực tiếp trong cửa sổ trình duyệt và làm theo lời
+nhắc trong Terminal. Luồng nhập Excel sẽ yêu cầu xác nhận sau khi bạn mở form
+thêm sản phẩm.
+
+## Cài đặt thủ công (nếu cần)
 
 ```bash
+cd /Users/lql/auto-import-products
+python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m playwright install chromium
 ```

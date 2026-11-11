@@ -7,8 +7,10 @@ from pathlib import Path
 from nasani import seo_detector
 from nasani.browser_manager import validate_profile
 from nasani.report_manager import save_report
+from nasani.seo_report import save_report as save_json_report
 from nasani.seo_scanner import safe_url
 from nasani.seo_updater import _select_update_records, _validate_record_url
+from nasani.seo_report import update_summary
 
 
 class SeoToolsTests(unittest.TestCase):
@@ -130,6 +132,17 @@ class SeoToolsTests(unittest.TestCase):
                 row = next(csv.DictReader(source))
             self.assertEqual(row["field"], "seo_title")
             self.assertEqual(row["value"], "Title")
+
+    def test_report_summary_handles_missing_and_string_paths(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            json_path = Path(temporary) / "summary.json"
+            report = {"records": None, "modules": None}
+            update_summary(report)
+            self.assertEqual(report["summary"]["total_modules"], 0)
+            self.assertEqual(report["summary"]["total_records"], 0)
+
+            save_json_report({"status": "ok"}, str(json_path))
+            self.assertEqual(json.loads(json_path.read_text(encoding="utf-8"))["status"], "ok")
 
 
 if __name__ == "__main__":

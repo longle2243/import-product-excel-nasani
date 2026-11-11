@@ -1,8 +1,10 @@
 import json
 import os
+from pathlib import Path
 
 
 def save_report(report, path):
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = path.with_suffix(path.suffix + ".tmp")
 
@@ -14,8 +16,8 @@ def save_report(report, path):
 
 
 def update_summary(report):
-    records = report.get("records", [])
-    modules = report.get("modules", [])
+    records = report.get("records") or []
+    modules = report.get("modules") or []
     report["summary"] = {
         "total_modules": len(modules),
         "accessible_modules": sum(

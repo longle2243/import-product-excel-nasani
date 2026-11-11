@@ -26,7 +26,7 @@ CSV_COLUMNS = (
 
 
 def _csv_rows(report):
-    for page in report.get("pages", []):
+    for page in report.get("pages") or []:
         fields = page.get("fields") or [{}]
         for field in fields:
             yield {
